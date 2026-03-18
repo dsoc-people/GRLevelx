@@ -1,5 +1,2 @@
-# No third-party packages required.
-# All dependencies are part of Python's standard library:
-#   gzip, json, math, ssl, urllib, datetime
-#
-# Python >= 3.8 required.
+streamlit
+pandas
