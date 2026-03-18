@@ -260,8 +260,18 @@ def build_placefile(stations):
 
 # ── Streamlit UI ──────────────────────────────────────────────────────────────
 
+RAW_PLACEFILE_URL = "https://raw.githubusercontent.com/dsoc-people/GRLevelx/main/ky_obs.txt"
+
 st.title("KY Surface Observations")
 st.caption("KY Mesonet + WeatherStem | GRlevelX Placefile Dashboard")
+
+# GRlevelX URL banner
+st.info(
+    "**GRlevelX Live URL** — paste this into Placefile Manager and GRlevelX will "
+    "auto-fetch updates every 5 minutes:\n\n"
+    f"`{RAW_PLACEFILE_URL}`",
+    icon="📡",
+)
 
 # Header row: last-updated + refresh button
 col_ts, col_btn = st.columns([4, 1])
@@ -317,7 +327,8 @@ st.dataframe(df_table, use_container_width=True, hide_index=True)
 # ── Placefile download ────────────────────────────────────────────────────────
 st.subheader("GRlevelX Placefile")
 st.markdown(
-    "Download the placefile and load it in GRlevelX via **GIS menu → Placefile Manager → Add**."
+    "Use the URL above in GRlevelX for live auto-updating obs, "
+    "or download below to load a one-time snapshot."
 )
 
 placefile_text = build_placefile(stations)
