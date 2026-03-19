@@ -248,6 +248,8 @@ def build_placefile(stations):
         wdir_deg = s["wind_dir"]
         card     = deg_to_cardinal(wdir_deg)
         wdir_str = f"{card} ({fmt(wdir_deg, 'deg')})" if wdir_deg is not None else "N/A"
+        # Compact wind label: e.g. "SW8" or "N/A"
+        wind_label = f"{card}{s['wind_spd']}" if s["wind_spd"] is not None and s["wind_dir"] is not None else "N/A"
         hover = (
             f"{s['name']} [{s['source']}]\\n"
             f"Temp: {temp}F  Dew: {dew}F\\n"
@@ -258,9 +260,10 @@ def build_placefile(stations):
         id_label   = s["id"][:6]
         lines += [
             f"Object: {s['lat']},{s['lon']}",
-            f'  Text: 0, 14,1,"{temp_label}","{hover}"',
-            f'  Text: 0,-14,2,"{dew_label}","{hover}"',
-            f'  Text: 16,  0,2,"{id_label}","{hover}"',
+            f'  Text: -20, 14,1,"{temp_label}","{hover}"',   # temp upper-left
+            f'  Text: -20,-14,2,"{dew_label}","{hover}"',    # dew lower-left
+            f'  Text:   5, 14,2,"{id_label}","{hover}"',     # station ID upper-right
+            f'  Text:   5,-14,2,"{wind_label}","{hover}"',   # wind lower-right
             "End:",
             "",
         ]

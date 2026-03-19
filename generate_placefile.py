@@ -274,16 +274,18 @@ def build_placefile(stations: list) -> str:
             f"Wind: {wspd} from {wdir_str}"
         )
 
-        # Map label: temp on top, dew on bottom (classic surface obs style)
+        # Traditional surface obs layout: temp UL, dew LL, station UR, wind LR
         temp_label = str(s["temp"]) if s["temp"] is not None else "N/A"
         dew_label  = str(s["dewpoint"]) if s["dewpoint"] is not None else "N/A"
-        id_label   = s["id"][:6]  # keep labels short
+        id_label   = s["id"][:6]
+        wind_label = f"{card}{s['wind_spd']}" if s["wind_spd"] is not None and s["wind_dir"] is not None else "N/A"
 
         lines += [
             f"Object: {s['lat']},{s['lon']}",
-            f'  Text: 0, 14,1,"{temp_label}","{hover}"',   # temp above dot  (+y = up)
-            f'  Text: 0,-14,2,"{dew_label}","{hover}"',    # dew below dot   (-y = down)
-            f'  Text: 16,  0,2,"{id_label}","{hover}"',    # ID to the right (+x = right)
+            f'  Text: -20, 14,1,"{temp_label}","{hover}"',   # temp upper-left
+            f'  Text: -20,-14,2,"{dew_label}","{hover}"',    # dew lower-left
+            f'  Text:   5, 14,2,"{id_label}","{hover}"',     # station ID upper-right
+            f'  Text:   5,-14,2,"{wind_label}","{hover}"',   # wind lower-right
             "End:",
             "",
         ]
