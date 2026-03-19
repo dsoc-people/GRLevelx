@@ -260,17 +260,17 @@ def build_placefile(stations: list) -> str:
         if s is None:
             continue
 
-        temp     = fmt(s["temp"], "°F")
-        dew      = fmt(s["dewpoint"], "°F")
+        temp     = fmt(s["temp"])
+        dew      = fmt(s["dewpoint"])
         wspd     = fmt(s["wind_spd"], " mph")
         wdir_deg = s["wind_dir"]
         card     = deg_to_cardinal(wdir_deg)
-        wdir_str = f"{card} ({fmt(wdir_deg, '°')})" if wdir_deg is not None else "N/A"
+        wdir_str = f"{card} ({fmt(wdir_deg, 'deg')})" if wdir_deg is not None else "N/A"
 
-        # Hover text shown on mouse-over in GRlevelX
+        # Hover text shown on mouse-over in GRlevelX (ASCII only — GRlevelX can't parse UTF-8)
         hover = (
             f"{s['name']} [{s['source']}]\\n"
-            f"Temp: {temp}  Dew: {dew}\\n"
+            f"Temp: {temp}F  Dew: {dew}F\\n"
             f"Wind: {wspd} from {wdir_str}"
         )
 
