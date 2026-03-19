@@ -1,0 +1,168 @@
+============================================================
+  KY Surface Obs - Mobile Mesonet Server
+  How to Start and Run
+============================================================
+
+WHAT THIS DOES
+--------------
+This script fetches live KY Mesonet and WeatherStem surface
+observation data and serves it as a GRlevelX placefile over
+plain HTTP on your local machine. GRlevel2 Analyst can then
+load it directly using a URL - no internet hosting needed.
+
+The data refreshes automatically every 5 minutes.
+
+
+REQUIREMENTS
+------------
+- Python 3.8 or newer must be installed on the PC.
+  Download at: https://www.python.org/downloads/
+  During install, check "Add Python to PATH".
+
+- Internet connection (to fetch station data from
+  KY Mesonet and WeatherStem servers).
+
+- No extra Python packages needed - uses built-in
+  libraries only.
+
+
+HOW TO START THE SERVER
+-----------------------
+1. Open a Command Prompt or PowerShell window.
+   (Start menu -> type "cmd" -> press Enter)
+
+2. Navigate to this folder:
+      cd "C:\path\to\mobile mesonet"
+
+   If running from a thumb drive, for example:
+      cd "E:\mobile mesonet"
+
+3. Start the server:
+      py serve_placefile.py
+
+   If "py" doesn't work, try:
+      python serve_placefile.py
+   or:
+      python3 serve_placefile.py
+
+4. You will see:
+      =======================================================
+        KY Surface Obs - Mobile Mesonet Server
+      =======================================================
+        URL for GRlevel2: http://localhost:9000/ky_obs.txt
+        Press Ctrl+C to stop.
+      =======================================================
+      [HH:MM:SS] Fetching station data...
+      [HH:MM:SS] Ready - 104 stations loaded.
+
+   This means it is working. Leave this window open.
+
+
+HOW TO ADD IT TO GRLEVEL2 ANALYST
+----------------------------------
+1. In GRlevel2 Analyst, open the Placefile Manager.
+   (Tools menu -> Placefile Manager, or the toolbar button)
+
+2. Click "Add" or the "+" button.
+
+3. Enter this URL exactly:
+      http://localhost:9000/ky_obs.txt
+
+4. Give it a name like "KY Surface Obs".
+
+5. Click OK / Enable it.
+
+The obs should appear on the map within a few seconds.
+GRlevel2 will automatically re-fetch the data every 5 minutes.
+
+
+RUNNING FROM A THUMB DRIVE (PORTABLE USE)
+------------------------------------------
+This script has no dependencies outside of Python itself.
+To use it on any Windows PC:
+
+1. Copy the entire "mobile mesonet" folder to your thumb drive.
+
+2. Make sure Python is installed on the target PC.
+
+3. Open Command Prompt, navigate to the thumb drive folder,
+   and run:
+      py serve_placefile.py
+
+4. Point GRlevel2 to: http://localhost:9000/ky_obs.txt
+
+The server only needs to run on the PC where GRlevel2 is
+running. No network sharing required.
+
+
+KEEPING IT RUNNING AUTOMATICALLY (OPTIONAL)
+--------------------------------------------
+If you want the server to start automatically with Windows:
+
+1. Press Win+R, type "shell:startup", press Enter.
+   This opens the Windows Startup folder.
+
+2. Right-click inside the folder -> New -> Shortcut.
+
+3. For the location, enter:
+      py "C:\full\path\to\mobile mesonet\serve_placefile.py"
+
+4. Name it "KY Mesonet Server" and click Finish.
+
+The server will now start automatically when you log in.
+A small black command window will appear in the taskbar -
+minimize it, do not close it.
+
+
+STOPPING THE SERVER
+-------------------
+Click the command prompt window and press Ctrl+C.
+Or simply close the command prompt window.
+GRlevel2 will no longer be able to fetch updates after
+the server is stopped.
+
+
+TROUBLESHOOTING
+---------------
+Problem: "py is not recognized" or "python is not recognized"
+Fix: Python is not installed or not in PATH.
+     Download from https://www.python.org and reinstall,
+     making sure to check "Add Python to PATH".
+
+Problem: "Address already in use" error on startup
+Fix: Port 9000 is being used by another program.
+     Open serve_placefile.py in Notepad, find the line:
+         PORT = 9000
+     Change 9000 to another number like 8081, save, restart.
+     Then use http://localhost:8081/ky_obs.txt in GRlevel2.
+
+Problem: Server starts but GRlevel2 shows nothing
+Fix: - Make sure you typed the URL exactly:
+         http://localhost:9000/ky_obs.txt
+     - Check that the server window shows "Ready" before
+       loading in GRlevel2.
+     - Try opening http://localhost:9000/ky_obs.txt in a
+       web browser - you should see raw text data.
+       If not, the server is not running correctly.
+
+Problem: Stations show N/A for all values
+Fix: The script cannot reach the data servers.
+     Check your internet connection.
+     Firewall or VPN software may be blocking the connection.
+
+Problem: Server window closes immediately on startup
+Fix: Run it from Command Prompt (not by double-clicking).
+     The error message will be visible in the cmd window.
+
+
+DATA SOURCES
+------------
+- KY Mesonet:   https://www.kymesonet.org
+- WeatherStem:  https://weatherstem.com
+
+Data refreshes every 5 minutes.
+All 85 KY Mesonet stations and 19 WeatherStem stations
+are included (104 total).
+
+
+============================================================
