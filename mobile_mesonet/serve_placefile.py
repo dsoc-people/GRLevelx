@@ -320,6 +320,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # suppress default server log spam
 
+    def handle_error(self, request, client_address):
+        pass  # suppress ConnectionResetError from GRlevel2 closing connections abruptly
+
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
