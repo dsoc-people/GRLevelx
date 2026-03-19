@@ -316,7 +316,7 @@ def main():
 
     placefile = build_placefile(all_stations)
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    with open(OUTPUT_FILE, "w", encoding="utf-8", newline="\r\n") as f:
         f.write(placefile)
 
     print(f"Placefile written -> {OUTPUT_FILE}  ({len(placefile)} bytes)")
