@@ -14,6 +14,7 @@ every 5 minutes. Press Ctrl+C to stop.
 import gzip
 import json
 import math
+import os
 import ssl
 import threading
 import time
@@ -235,6 +236,8 @@ def build_placefile(stations):
         'Font: 1, 11, 1, "Courier New"',
         'Font: 2, 10, 0, "Courier New"',
         "",
+        "Color: 255 255 0",
+        "",
     ]
     for s in stations:
         if s is None:
@@ -279,6 +282,10 @@ def refresh():
     content  = build_placefile(stations).encode("ascii", errors="replace")
     with _lock:
         _placefile_bytes = content
+    # Also write to disk so GRlevel2 can load it as a local file
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, "ky_obs.txt"), "wb") as f:
+        f.write(content)
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Ready - {len(stations)} stations loaded.", flush=True)
 
 
