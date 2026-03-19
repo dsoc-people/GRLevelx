@@ -16,6 +16,8 @@ import json
 import math
 import os
 import ssl
+import subprocess
+import sys
 import threading
 import time
 import urllib.request
@@ -153,8 +155,132 @@ def deg_to_cardinal(deg):
     return dirs[round(deg / 22.5) % 16]
 
 
+def calc_rh(temp_f, dew_f):
+    if temp_f is None or dew_f is None:
+        return None
+    try:
+        t  = (temp_f - 32) * 5 / 9
+        td = (dew_f  - 32) * 5 / 9
+        rh = 100 * math.exp((17.625 * td) / (243.04 + td)) / \
+                   math.exp((17.625 * t)  / (243.04 + t))
+        return round(rh)
+    except Exception:
+        return None
+
+
+def f_to_c(f):
+    if f is None:
+        return None
+    return round((f - 32) * 5 / 9)
+
+
+def mph_to_kt(mph):
+    if mph is None:
+        return None
+    return round(mph * 0.868976)
+
+
 def fmt(val, unit=""):
     return "N/A" if val is None else f"{val}{unit}"
+
+
+def ensure_windbarbs():
+    """Generate windbarbs.png icon sheet (11 icons: calm,5,10,...,60 kt).
+    Returns absolute path on success, None if PIL unavailable."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(script_dir, "windbarbs.png")
+    if os.path.exists(path):
+        return path
+    print("  Generating windbarbs.png...", flush=True)
+    try:
+        try:
+            from PIL import Image, ImageDraw
+        except ImportError:
+            print("  Installing Pillow (needed for wind barbs)...", flush=True)
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "Pillow", "-q"],
+                timeout=120,
+            )
+            from PIL import Image, ImageDraw
+
+        # 11 icons in a horizontal strip: calm,5,10,15,20,25,30,35,40,50,60 kt
+        SPEEDS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60]
+        W, H = 30, 30
+        img = Image.new("RGBA", (W * len(SPEEDS), H), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        WHITE = (255, 255, 255, 255)
+
+        # Station dot at center (15,15) = hotspot.
+        # Shaft goes UP from station to y=1.
+        # Barb positions (from shaft tip downward): y=1, 4, 7, 10 (3px spacing)
+        SX, SY = 15, 15          # station / hotspot
+        SHAFT_TOP = 1            # shaft tip y
+        STEP = 3                 # pixels between barb marks
+        FULL_DX, FULL_DY = 9, 4 # full barb offset (right, down)
+        HALF_DX, HALF_DY = 5, 2 # half barb offset
+
+        for i, kt in enumerate(SPEEDS):
+            ox = i * W  # x origin for this icon
+
+            if kt == 0:
+                # Calm: two concentric circles at station
+                draw.ellipse([ox+SX-5, SY-5, ox+SX+5, SY+5], outline=WHITE, width=1)
+                draw.ellipse([ox+SX-2, SY-2, ox+SX+2, SY+2], outline=WHITE, width=1)
+                continue
+
+            # Draw shaft (station up to tip)
+            draw.line([ox+SX, SY, ox+SX, SHAFT_TOP], fill=WHITE, width=1)
+
+            pens  = kt // 50;  rem  = kt % 50
+            fulls = rem // 10; rem %= 10
+            halfs = 1 if rem >= 5 else 0
+
+            y = SHAFT_TOP  # draw barbs from tip downward
+
+            for _ in range(pens):
+                # Pennant: filled triangle on right side of shaft
+                draw.polygon(
+                    [(ox+SX, y), (ox+SX+FULL_DX, y+FULL_DY), (ox+SX, y+STEP+1)],
+                    fill=WHITE,
+                )
+                y += STEP + 2  # pennant + gap
+
+            for _ in range(fulls):
+                draw.line(
+                    [ox+SX, y, ox+SX+FULL_DX, y+FULL_DY],
+                    fill=WHITE, width=1,
+                )
+                y += STEP
+
+            if halfs:
+                draw.line(
+                    [ox+SX, y, ox+SX+HALF_DX, y+HALF_DY],
+                    fill=WHITE, width=1,
+                )
+
+        img.save(path)
+        print(f"  Windbarbs icon sheet saved to: {path}", flush=True)
+        return path
+
+    except Exception as exc:
+        print(f"  [WARN] Could not generate windbarbs.png: {exc}", flush=True)
+        print("  [WARN] Wind barbs will be omitted from placefile.", flush=True)
+        return None
+
+
+def kt_to_barb_index(kt):
+    """Map knots to 1-based icon index in windbarbs.png strip.
+    Strip order: calm(1), 5kt(2), 10kt(3), ..., 60kt(11)."""
+    if kt is None:
+        return None
+    # Round to nearest 5kt, clamp to strip
+    speeds = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60]
+    best = 0
+    for i, s in enumerate(speeds):
+        if kt >= s - 2:
+            best = i
+    return best + 1  # 1-based
+
 
 # ── Fetch functions ───────────────────────────────────────────────────────────
 
@@ -223,8 +349,10 @@ def fetch_weatherstem(station_id, name, lat, lon, url):
 
 # ── Placefile builder ─────────────────────────────────────────────────────────
 
-def build_placefile(stations):
+def build_placefile(stations, windbarbs_path=None):
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%MZ")
+    # Normalize path separators for GRlevelX (forward slashes)
+    wb_path = windbarbs_path.replace("\\", "/") if windbarbs_path else None
     lines = [
         f"; KY Surface Observations - KY Mesonet + WeatherStem",
         f"; Generated: {now_utc}",
@@ -239,40 +367,71 @@ def build_placefile(stations):
         "Color: 255 255 0",
         "",
     ]
+    if wb_path:
+        # IconFile: index, icon_width, icon_height, hotspot_x, hotspot_y, "path"
+        lines.append(f'IconFile: 1, 30, 30, 15, 15, "{wb_path}"')
+        lines.append("")
     for s in stations:
         if s is None:
             continue
         temp     = fmt(s["temp"])
         dew      = fmt(s["dewpoint"])
         wspd     = fmt(s["wind_spd"], " mph")
-        wdir_deg = s["wind_dir"]
-        card     = deg_to_cardinal(wdir_deg)
-        wdir_str = f"{card} ({fmt(wdir_deg, 'deg')})" if wdir_deg is not None else "N/A"
-        # Compact wind label: e.g. "SW8" or "N/A"
-        wind_label = f"{card}{s['wind_spd']}" if s["wind_spd"] is not None and s["wind_dir"] is not None else "N/A"
+        wdir_deg   = s["wind_dir"]
+        card       = deg_to_cardinal(wdir_deg)
+        rh         = calc_rh(s["temp"], s["dewpoint"])
+        temp_c     = f_to_c(s["temp"])
+        dew_c      = f_to_c(s["dewpoint"])
+        wind_kt    = mph_to_kt(s["wind_spd"])
+        now_str    = datetime.now(timezone.utc).strftime("%d-%b-%Y %I:%M%p UTC (%H:%MZ)")
+
+        wind_detail = "N/A"
+        if s["wind_spd"] is not None and s["wind_dir"] is not None:
+            wind_detail = f"{card} at {s['wind_spd']} mph ({wind_kt} kt)"
+        elif s["wind_spd"] is not None:
+            wind_detail = f"Variable at {s['wind_spd']} mph ({wind_kt} kt)"
+
         hover = (
             f"{s['name']} [{s['source']}]\\n"
-            f"Temp: {temp}F  Dew: {dew}F\\n"
-            f"Wind: {wspd} from {wdir_str}"
+            f"({s['lat']},{s['lon']})\\n"
+            f"--------------------------------\\n"
+            f"Time: {now_str}\\n"
+            f"T:    {fmt(s['temp'])}F ({fmt(temp_c)}C)\\n"
+            f"Td:   {fmt(s['dewpoint'])}F ({fmt(dew_c)}C)\\n"
+            f"RH:   {fmt(rh)}%\\n"
+            f"Wind: {wind_detail}"
         )
+
         temp_label = str(s["temp"]) if s["temp"] is not None else "N/A"
         dew_label  = str(s["dewpoint"]) if s["dewpoint"] is not None else "N/A"
         id_label   = s["id"][:6]
-        lines += [
+        wind_label = f"{card}{s['wind_spd']}" if s["wind_spd"] is not None and s["wind_dir"] is not None else "N/A"
+
+        obj_lines = [
             f"Object: {s['lat']},{s['lon']}",
-            f'  Text: -20, 14,1,"{temp_label}","{hover}"',   # temp upper-left
-            f'  Text: -20,-14,2,"{dew_label}","{hover}"',    # dew lower-left
+            f'  Text: -15, 14,1,"{temp_label}","{hover}"',   # temp upper-left
+            f'  Text: -15,-14,2,"{dew_label}","{hover}"',    # dew lower-left
             f'  Text:   5, 14,2,"{id_label}","{hover}"',     # station ID upper-right
             f'  Text:   5,-14,2,"{wind_label}","{hover}"',   # wind lower-right
-            "End:",
-            "",
         ]
+        # Wind barb icon
+        if wb_path and s["wind_spd"] is not None:
+            wdir = int(s["wind_dir"]) % 360 if s["wind_dir"] is not None else 0
+            barb_idx = kt_to_barb_index(mph_to_kt(s["wind_spd"]))
+            if barb_idx is not None:
+                # Icon: x_off, y_off, angle, file_num, icon_num, "hover"
+                obj_lines.append(
+                    f'  Icon: 0, 0, {wdir}, 1, {barb_idx}, "{hover}"'
+                )
+        obj_lines += ["End:", ""]
+        lines += obj_lines
     return "\r\n".join(lines)
 
 # ── Data fetcher ──────────────────────────────────────────────────────────────
 
 _placefile_bytes = b""
 _lock = threading.Lock()
+_windbarbs_path = None
 
 
 def refresh():
@@ -282,7 +441,7 @@ def refresh():
     weatherstem = [fetch_weatherstem(sid, n, lat, lon, u)
                    for sid, n, lat, lon, u in WEATHERSTEM_STATIONS]
     stations = [s for s in mesonet + weatherstem if s is not None]
-    content  = build_placefile(stations).encode("ascii", errors="replace")
+    content  = build_placefile(stations, _windbarbs_path).encode("ascii", errors="replace")
     with _lock:
         _placefile_bytes = content
     # Also write to disk so GRlevel2 can load it as a local file
@@ -333,6 +492,9 @@ if __name__ == "__main__":
     print(f"  URL for GRlevel2: http://localhost:{PORT}/ky_obs.txt")
     print("  Press Ctrl+C to stop.")
     print("=" * 55)
+
+    # Build wind barb icon sheet (auto-installs Pillow if needed)
+    _windbarbs_path = ensure_windbarbs()
 
     # Generate placefile before starting server
     refresh()
